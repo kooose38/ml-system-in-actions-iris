@@ -15,7 +15,7 @@ COPY ./models/ /${PROJECT_DIR}/models/
 ENV TRAIN_DATA /${PROJECT_DIR}/models/train.npy
 ENV LABEL_FILEPATH /${PROJECT_DIR}/models/label.json
 ENV MODEL_FILEPATH /${PROJECT_DIR}/models/iris_svm.onnx
-ENV OUTLIER_FILEPATH /${PROJECT_DIR}/models/ouelier.onnx
+ENV OUTLIER_FILEPATH /${PROJECT_DIR}/models/outlier.onnx
 
 ENV LOG_LEVEL DEBUG
 ENV LOG_FORMAT TEXT
