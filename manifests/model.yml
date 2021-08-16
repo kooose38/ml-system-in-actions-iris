@@ -1,0 +1,194 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model1
+  namespace: model
+  labels:
+    app: model
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: model
+  template:
+    metadata:
+      labels:
+        app: model
+        version: model1
+      annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: "128m"
+        sidecar.istio.io/proxyMemory: "128Mi"
+        proxy.istio.io/config: "{'concurrency':'4'}"
+    spec:
+      containers:
+        - name: model1
+          image: kooose/ml-system-in-actions:model1_0.0.1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: 500m
+              memory: "300Mi"
+            requests:
+              cpu: 500m
+              memory: "300Mi"
+          volumeMounts:
+            - name: workdir
+              mountPath: /workdir
+          env:
+            - name: MODEL_FILEPATH
+              value: "/workdir/iris_svm.onnx"
+            - name: OUTLIER_FILEPATH
+              value: "/workdir/outlier.onnx"
+        - name: count-agent
+          image: k8s.gcr.io/fluentd-gcp:1.30
+          env:
+            - name: FLUENTD_ARGS
+              value: -c /etc/fluentd-config/fluentd.conf
+          resources:
+            limits:
+              cpu: 128m
+              memory: "300Mi"
+            requests:
+              cpu: 128m
+              memory: "300Mi"
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+            - name: config-volume
+              mountPath: /etc/fluentd-config
+      initContainers:
+        - name: model-loader
+          image: kooose/ml-system-in-actions:model_loader_iris_svm_0.0.1
+          imagePullPolicy: Always
+          command:
+            - python
+            - "-m"
+            - "src.main"
+            - "--model_filepath"
+            - "/workdir/iris_svc.onnx"
+            - "--outlier_filepath"
+            - "/workdir/outlier.onnx"
+          volumeMounts:
+            - name: workdir
+              mountPath: /workdir
+      volumes:
+        - name: varlog
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: fluentd-config
+        - name: workdir
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model
+  namespace: model
+  labels:
+    app: model
+spec:
+  ports:
+    - name: rest
+      port: 8000
+      protocol: TCP
+  selector:
+    app: model
+
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: prediction-log
+data:
+  fluentd.conf: |
+    <source>
+      type tail
+      format none
+      path /var/log/gunicorn_error.log
+      pos_file /var/log/gunicorn_error.log
+      tag gunicorn_error.log
+    </source>
+    <source>
+      type tail
+      format none
+      path /var/log/gunicorn_access.log
+      pos_file /var/log/gunicorn_access.log
+      tag gunicorn_access.log
+    </source>
+    <match **>
+      type google_cloud
+    </match>
+
+    
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: model1
+  namespace: model
+  labels:
+    app: model1
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: model1
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+
+
+
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: model
+  namespace: model
+spec:
+  host: model
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+  subsets:
+    - name: model1
+      labels:
+        version: model1
+    - name: model2
+      labels:
+        version: model2
+
+
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: model
+  namespace: model
+spec:
+  hosts:
+    - model 
+  http:
+    - route:
+        - destination:
+            host: model 
+            subset: model1
+          weight: 60
+        - destination:
+            host: model
+            subset: model2
+          weight: 40
