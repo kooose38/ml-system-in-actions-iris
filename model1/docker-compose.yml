@@ -1,0 +1,12 @@
+version: "3"
+
+services:
+  model1:
+    container_name: model1
+    image: kooose/ml-system-in-actions:model1_0.0.1
+    restart: always
+    environment:
+      - PLATFORM=docker_compose
+    ports:
+      - 8000:8000
+    command: ./run.sh

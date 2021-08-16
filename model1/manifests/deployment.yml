@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model1
+  namespace: model
+  labels:
+    app: model1
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: model1
+  template:
+    metadata:
+      labels:
+        app: model1
+    spec:
+      containers:
+        - name: model1
+          image: kooose/ml-system-in-actions:model1_0.0.1
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+          resources:
+            limits:
+              cpu: 500m
+              memory: "300Mi"
+            requests:
+              cpu: 500m
+              memory: "300Mi"
+          volumeMounts:
+            - name: workdir
+              mountPath: /workdir
+          env:
+            - name: MODEL_FILEPATH
+              value: "/workdir/iris_svm.onnx"
+            - name: OUTLIER_FILEPATH
+              value: "/workdir/outlier.onnx"
+      initContainers:
+        - name: model-loader
+          image: kooose/ml-system-in-actions:model_loader_iris_svm_0.0.1
+          imagePullPolicy: Always
+          command:
+            - python
+            - "-m"
+            - "src.main"
+            - "--model_filepath"
+            - "/workdir/iris_svc.onnx"
+            - "--outlier_filepath"
+            - "/workdir/outlier.onnx"
+          volumeMounts:
+            - name: workdir
+              mountPath: /workdir
+      volumes:
+        - name: workdir
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model1
+  namespace: model
+  labels:
+    app: model1
+spec:
+  ports:
+    - name: rest
+      port: 8000
+      protocol: TCP
+  selector:
+    app: model1
+
+---
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: model1
+  namespace: model
+  labels:
+    app: model1
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: model1
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
