@@ -22,7 +22,6 @@ class ModelConfigurations:
     model_filepath = os.getenv("MODEL_FILEPATH")
     label_filepath = os.getenv("LABEL_FILEPATH")
     data_filepath = os.getenv("TRAIN_DATA", "/model1/models/train.npy")
-    transform_filepath = os.getenv("TRANSFORM_FILEPATH", "/model1/models/preprocessing.pkl")
     outlier_filepath = os.getenv("OUTLIER_FILEPATH", "/workdir/outlier.onnx")
 
 

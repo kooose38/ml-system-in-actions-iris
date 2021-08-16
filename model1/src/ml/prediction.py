@@ -8,6 +8,7 @@ import numpy as np
 import onnxruntime as rt
 from pydantic import BaseModel
 from src.configurations import ModelConfigurations
+from sklearn.preprocessing import StandardScaler
 
 logger = getLogger(__name__)
 
@@ -21,22 +22,18 @@ class Classifier(object):
         self,
         model_filepath: str,
         label_filepath: str,
-        transform_filepath: str,
         data_filepath: str,
     ):
         self.model_filepath: str = model_filepath
         self.label_filepath: str = label_filepath
-        self.transform_filepath = transform_filepath
         self.data_filepath = data_filepath
         self.classifier = None
         self.label: Dict[str, str] = {}
         self.input_name: str = ""
         self.output_name: str = ""
-        self.transform = None 
 
         self.load_model()
         self.load_label()
-        self.load_transform()
 
     def load_model(self):
         logger.info(f"load model in {self.model_filepath}")
@@ -58,14 +55,16 @@ class Classifier(object):
             self.label = json.load(f)
         logger.info(f"label: {self.label}")
 
-    def load_transform(self):
-        scaler = joblib.load(self.transform_filepath)
+    def transform(self, data: np.ndarray) -> np.ndarray:
+        scaler = StandardScaler()
         scaler.fit(np.load(self.data_filepath))
-        self.transform = scaler 
+        data = scaler.transform(data)
+        return data 
+        
 
     def predict(self, data: List[List[float]]) -> list:
         data = np.array(data).reshape(1, -1).astype(np.float32)
-        data = self.transform.transform(data)
+        data = self.transform(data)
         pred = self.classifier.run(None, {self.input_name: data})
 
         pred_proba = pred[1][0].tolist()
@@ -80,6 +79,5 @@ class Classifier(object):
 classifier = Classifier(
     model_filepath=ModelConfigurations().model_filepath,
     label_filepath=ModelConfigurations().label_filepath,
-    transform_filapath=ModelConfigurations().transform_filepath,
     data_filepath=ModelConfigurations().data_filepath
 )

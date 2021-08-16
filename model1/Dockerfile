@@ -12,7 +12,6 @@ RUN apt-get -y update && \
 COPY ./src/ /${PROJECT_DIR}/src/
 COPY ./models/ /${PROJECT_DIR}/models/
 
-ENV TRANSFORM_FILEPATH /${PROJECT_DIR}/models/preprocessing.pkl
 ENV TRAIN_DATA /${PROJECT_DIR}/models/train.npy
 ENV LABEL_FILEPATH /${PROJECT_DIR}/models/label.json
 ENV MODEL_FILEPATH /${PROJECT_DIR}/models/iris_svm.onnx
