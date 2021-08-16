@@ -58,14 +58,14 @@ class Classifier(object):
     def transform(self, data: np.ndarray) -> np.ndarray:
         scaler = StandardScaler()
         scaler.fit(np.load(self.data_filepath))
-        data = scaler.transform(data)
-        return data 
+        data_ = scaler.transform(data)
+        return data_ 
         
 
     def predict(self, data: List[List[float]]) -> list:
         data = np.array(data).reshape(1, -1).astype(np.float32)
-        data = self.transform(data)
-        pred = self.classifier.run(None, {self.input_name: data})
+        data_ = self.transform(data)
+        pred = self.classifier.run(None, {self.input_name: data_})
 
         pred_proba = pred[1][0].tolist()
         return pred_proba 

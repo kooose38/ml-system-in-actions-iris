@@ -36,6 +36,23 @@ spec:
               value: "/workdir/iris_svm.onnx"
             - name: OUTLIER_FILEPATH
               value: "/workdir/outlier.onnx"
+        - name: count-agent
+          image: k8s.gcr.io/fluentd-gcp:1.30
+          env:
+            - name: FLUENTD_ARGS
+              value: -c /etc/fluentd-config/fluentd.conf
+          resources:
+            limits:
+              cpu: 128m
+              memory: "300Mi"
+            requests:
+              cpu: 128m
+              memory: "300Mi"
+          volumeMounts:
+            - name: varlog
+              mountPath: /var/log
+            - name: config-volume
+              mountPath: /etc/fluentd-config
       initContainers:
         - name: model-loader
           image: kooose/ml-system-in-actions:model_loader_iris_svm_0.0.1
@@ -52,6 +69,11 @@ spec:
             - name: workdir
               mountPath: /workdir
       volumes:
+        - name: varlog
+          emptyDir: {}
+        - name: config-volume
+          configMap:
+            name: fluentd-config
         - name: workdir
           emptyDir: {}
 
@@ -71,6 +93,34 @@ spec:
   selector:
     app: model1
 
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluentd-config
+  namespace: prediction-log
+data:
+  fluentd.conf: |
+    <source>
+      type tail
+      format none
+      path /var/log/gunicorn_error.log
+      pos_file /var/log/gunicorn_error.log
+      tag gunicorn_error.log
+    </source>
+    <source>
+      type tail
+      format none
+      path /var/log/gunicorn_access.log
+      pos_file /var/log/gunicorn_access.log
+      tag gunicorn_access.log
+    </source>
+    <match **>
+      type google_cloud
+    </match>
+
+    
 ---
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler

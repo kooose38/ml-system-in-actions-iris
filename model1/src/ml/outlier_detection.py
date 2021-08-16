@@ -4,7 +4,7 @@ from typing import Any, Tuple, List
 from io import BytesIO
 
 import numpy as np
-from src.configurations import ServiceConfiguraionsOutlier
+from src.configurations import ModelConfigurations
 import onnxruntime as rt
 
 logger = getLogger(__name__)
@@ -35,10 +35,10 @@ class OutlierDetector(object):
         pred = self.outlier.run(
            None, {self.input_name: np_data}
         )
-        outlier_score: float = pred[1][0][0]
+        outlier_score: float = float(pred[1][0][0])
         is_outlier: bool = outlier_score < 0.0
         return is_outlier, outlier_score
 
 outlier_detector = OutlierDetector(
-   model_path=ServiceConfiguraionsOutlier().outlier_filepath
+   model_path=ModelConfigurations().outlier_filepath
 )
